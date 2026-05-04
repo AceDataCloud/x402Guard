@@ -43,8 +43,8 @@ The agent's USDC sits in a standard SPL associated token account whose authority
 
 | Ix | Status | Purpose |
 |---|---|---|
-| `create_vault` | ✅ this PR | Init both PDAs + USDC ATA in one tx |
-| `spend` | ⏳ next PR | Validate policy → PDA-sign SPL transfer |
+| `create_vault` | ✅ | Init both PDAs + USDC ATA in one tx |
+| `spend` | ✅ | Validate policy → PDA-sign SPL transfer |
 | `pause` / `resume` | ⏳ next PR | Owner toggles `policy.paused` |
 | `update_policy` | ⏳ next PR | Owner-only policy mutation |
 | `clawback` | ⏳ next PR | Sweep vault back to owner |
