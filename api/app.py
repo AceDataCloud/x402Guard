@@ -14,10 +14,18 @@ from api.routes import auth, health, mcp, mcp_sessions, vaults
 
 @asynccontextmanager
 async def _lifespan(_: FastAPI):
-    """Ensure DB schema exists for local SQLite dev. Production runs Alembic
-    migrations and bypasses this branch by checking the URL.
+    """Ensure DB schema exists.
+
+    For SQLite (local dev) we always run create_all — the file may not
+    exist yet. For Postgres we also run create_all when APP_ENV != 'production',
+    which covers `docker compose up`. Production runs Alembic migrations
+    out-of-band before pods start, so we never auto-create there.
     """
-    if get_settings().database_url.startswith("sqlite"):
+    settings = get_settings()
+    if (
+        settings.database_url.startswith("sqlite")
+        or settings.app_env != "production"
+    ):
         await init_models()
     yield
 
