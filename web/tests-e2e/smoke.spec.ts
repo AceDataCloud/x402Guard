@@ -33,3 +33,29 @@ test("/vaults redirects to home when not authenticated", async ({ page }) => {
   // version, so accept both.
   await expect(page).toHaveURL(/\/\?next=(%2F|\/)vaults$/);
 });
+
+test("the new-vault form validates per-call <= daily client-side", async ({
+  page,
+}) => {
+  // Forge a valid-looking session so the route guard lets us through.
+  // We don't have to mint a real wallet — the form is fully client-side
+  // until the Phantom signature step.
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "x402guard.session",
+      "eyJwdWJrZXkiOiJ0ZXN0IiwiZXhwIjo5OTk5OTk5OTk5fQ.signature"
+    );
+    localStorage.setItem("x402guard.pubkey", "TestPubkeyForRouting111111111111111111");
+  });
+
+  await page.goto("/vaults/new");
+
+  // Bump per-call above daily, expect submit disabled.
+  await page.getByTestId("daily-cap").fill("1");
+  await page.getByTestId("per-call-cap").fill("5");
+  await expect(page.getByTestId("submit")).toBeDisabled();
+
+  // Bring it back into range.
+  await page.getByTestId("per-call-cap").fill("0.5");
+  await expect(page.getByTestId("submit")).toBeEnabled();
+});
