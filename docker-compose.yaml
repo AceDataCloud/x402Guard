@@ -4,12 +4,12 @@
 #   open http://localhost:8080
 #
 # Brings up:
-#   - postgres (so we exercise the same DB engine production uses)
-#   - api (FastAPI + SQLAlchemy + uvicorn)
-#   - web (Vue 3 → nginx with /api + /mcp proxied to api)
+#   - postgres        (matches the engine production uses)
+#   - x402guard-api   FastAPI + SQLAlchemy + uvicorn
+#   - x402guard-web   Vue 3 → nginx with /api + /mcp proxied to x402guard-api
 #
-# Anchor program is deployed separately to devnet/mainnet — the backend
-# never runs the program locally; it just builds + signs + sends txs.
+# Service names match the K8s service names (deploy/production/*.yaml)
+# so the nginx upstream `x402guard-api` works in both environments.
 
 services:
   postgres:
@@ -26,7 +26,7 @@ services:
     volumes:
       - x402guard-pg:/var/lib/postgresql/data
 
-  api:
+  x402guard-api:
     build:
       context: .
       dockerfile: api/Dockerfile
@@ -48,14 +48,14 @@ services:
       postgres:
         condition: service_healthy
 
-  web:
+  x402guard-web:
     build:
       context: ./web
       dockerfile: Dockerfile
     ports:
       - "8080:80"
     depends_on:
-      - api
+      - x402guard-api
 
 volumes:
   x402guard-pg:

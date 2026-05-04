@@ -1,52 +1,71 @@
-# Caddy + ACME terminate TLS for x402guard.acedata.cloud and route /api,
-# /mcp, /.well-known to the api service. The web service handles the
-# SPA + assets at /.
+# x402guard.acedata.cloud — single ingress, mixed routing.
+#
+# /api/*          → x402guard-api (FastAPI)
+# /mcp/*          → x402guard-api (Streamable HTTP MCP, longer timeouts)
+# /.well-known/*  → x402guard-api (service discovery)
+# /health         → x402guard-api (probe; the web image also handles this
+#                  via nginx but the ingress short-circuits to the api so
+#                  external probes don't depend on web pod nginx config)
+# everything else → x402guard-web (Vue SPA + assets)
+#
+# TLS: reuses the platform's existing wildcard cert
+# (`tls-wildcard-acedata-cloud`, signed for *.acedata.cloud).
 
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: x402guard
-  namespace: x402guard
+  namespace: acedatacloud
+  labels:
+    app: x402guard
   annotations:
-    # Match the AceDataCloud platform Caddy/ACME convention. Adjust
-    # if you're running a different ingress controller.
-    cert-manager.io/cluster-issuer: letsencrypt-prod
+    kubernetes.io/ingress.class: nginx-router
+    kubernetes.io/ingress.rule-mix: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # MCP tools call paid upstream APIs. Be patient on the proxy.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "180"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "180"
 spec:
-  ingressClassName: nginx
   tls:
-    - hosts: [x402guard.acedata.cloud]
-      secretName: x402guard-tls
+    - hosts:
+        - x402guard.acedata.cloud
+      secretName: tls-wildcard-acedata-cloud
   rules:
     - host: x402guard.acedata.cloud
       http:
         paths:
-          # Backend lives at /api, /mcp, /.well-known
           - path: /api
             pathType: Prefix
             backend:
               service:
-                name: api
+                name: x402guard-api
                 port:
                   number: 8000
           - path: /mcp
             pathType: Prefix
             backend:
               service:
-                name: api
+                name: x402guard-api
                 port:
                   number: 8000
           - path: /.well-known
             pathType: Prefix
             backend:
               service:
-                name: api
+                name: x402guard-api
                 port:
                   number: 8000
-          # Everything else is the SPA + static assets.
+          - path: /health
+            pathType: Exact
+            backend:
+              service:
+                name: x402guard-api
+                port:
+                  number: 8000
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: web
+                name: x402guard-web
                 port:
                   number: 80
