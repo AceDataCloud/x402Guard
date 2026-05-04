@@ -62,4 +62,4 @@ All custom errors are declared in [`src/errors.rs`](src/errors.rs). Each variant
 
 ## Program ID
 
-`5s9rscxcoXZMLwn2cenGYhj6zd5voyMHAmFBe4qhZQxH` — deterministic placeholder derived from `sha256("x402guard.agent_vault.v1")`. Will be replaced with a real keypair-backed ID generated via `solana-keygen grind` before mainnet deploy.
+`56TbAziiW8pDHFpRsxfnfBUfimBRTMCHw4gwDGw9uPW6` — deterministic placeholder derived from `sha256("x402guard.agent_vault.v1")`. Will be replaced with a real keypair-backed ID generated via `solana-keygen grind` before mainnet deploy.

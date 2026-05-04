@@ -21,7 +21,7 @@ os.environ.setdefault("APP_ENV", "local")
 os.environ.setdefault("APP_DEBUG", "false")
 os.environ.setdefault(
     "AGENT_VAULT_PROGRAM_ID",
-    "5s9rscxcoXZMLwn2cenGYhj6zd5voyMHAmFBe4qhZQxH",
+    "56TbAziiW8pDHFpRsxfnfBUfimBRTMCHw4gwDGw9uPW6",
 )
 os.environ.setdefault(
     "USDC_MINT",

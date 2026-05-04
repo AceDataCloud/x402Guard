@@ -37,14 +37,18 @@ spec:
               value: production
             - name: APP_DEBUG
               value: "false"
+            # Devnet for the demo. Mainnet deploy of the agent_vault
+            # program costs ~2.5 SOL of real rent; switching back to
+            # mainnet is a one-line change here + a `solana program
+            # deploy` against mainnet.
             - name: SOLANA_CLUSTER
-              value: mainnet
+              value: devnet
             - name: SOLANA_RPC_URL
-              value: https://api.mainnet-beta.solana.com
+              value: https://api.devnet.solana.com
             - name: USDC_MINT
-              value: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+              value: 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
             - name: AGENT_VAULT_PROGRAM_ID
-              value: "5s9rscxcoXZMLwn2cenGYhj6zd5voyMHAmFBe4qhZQxH"
+              value: "56TbAziiW8pDHFpRsxfnfBUfimBRTMCHw4gwDGw9uPW6"
             - name: CORS_ALLOWED_ORIGINS
               value: https://x402guard.acedata.cloud
           envFrom:

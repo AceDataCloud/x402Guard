@@ -39,7 +39,7 @@ pub use errors::*;
 pub use instructions::*;
 pub use state::*;
 
-declare_id!("5s9rscxcoXZMLwn2cenGYhj6zd5voyMHAmFBe4qhZQxH");
+declare_id!("56TbAziiW8pDHFpRsxfnfBUfimBRTMCHw4gwDGw9uPW6");
 
 #[program]
 pub mod agent_vault {

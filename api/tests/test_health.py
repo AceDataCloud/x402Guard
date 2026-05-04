@@ -26,6 +26,6 @@ def test_well_known_describes_service(client: TestClient) -> None:
     body = res.json()
     assert body["service"] == "x402guard"
     # Hardcoded in conftest
-    assert body["agent_vault_program_id"] == "5s9rscxcoXZMLwn2cenGYhj6zd5voyMHAmFBe4qhZQxH"
+    assert body["agent_vault_program_id"] == "56TbAziiW8pDHFpRsxfnfBUfimBRTMCHw4gwDGw9uPW6"
     assert body["usdc_mint"] == "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
     assert body["cluster"] in {"devnet", "mainnet"}

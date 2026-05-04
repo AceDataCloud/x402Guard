@@ -10,9 +10,10 @@
 use anchor_lang::prelude::*;
 
 /// Maximum number of endpoint hashes (sha256(host)) the policy can allow.
-/// 8 covers the realistic spread (`*.acedata.cloud`, vendor-specific endpoints, etc.)
-/// while keeping account size predictable.
-pub const MAX_ALLOWLIST: usize = 8;
+/// 4 covers the realistic spread (`*.acedata.cloud`, vendor-specific endpoints, etc.)
+/// while keeping the on-stack copy of `Policy` inside the 4 KB BPF frame —
+/// 8 entries pushed `CreateVault::try_accounts` over the BPF stack limit.
+pub const MAX_ALLOWLIST: usize = 4;
 
 /// PDA seeds.
 pub const SEED_VAULT: &[u8] = b"vault";

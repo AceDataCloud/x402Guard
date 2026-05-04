@@ -51,7 +51,7 @@ const valid = computed(() => {
   if (form.perCallCap <= 0) return false;
   if (form.perCallCap > form.dailyCap) return false;
   if (form.expiresInDays <= 0) return false;
-  if (allowlist.value.length === 0 || allowlist.value.length > 8) return false;
+  if (allowlist.value.length === 0 || allowlist.value.length > 4) return false;
   return true;
 });
 
@@ -155,7 +155,7 @@ async function onSubmit() {
           data-testid="allowlist"
         ></textarea>
         <small class="muted">
-          One host per line (or comma-separated). Up to 8 entries. Stored on
+          One host per line (or comma-separated). Up to 4 entries. Stored on
           chain as <code>sha256(host)</code>.
         </small>
       </label>

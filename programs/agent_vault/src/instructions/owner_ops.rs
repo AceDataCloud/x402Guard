@@ -24,7 +24,7 @@ pub struct OwnerOnly<'info> {
         bump = vault.bump,
         has_one = owner,
     )]
-    pub vault: Account<'info, Vault>,
+    pub vault: Box<Account<'info, Vault>>,
 
     #[account(
         mut,
@@ -32,7 +32,7 @@ pub struct OwnerOnly<'info> {
         bump = policy.bump,
         has_one = vault,
     )]
-    pub policy: Account<'info, Policy>,
+    pub policy: Box<Account<'info, Policy>>,
 }
 
 // ─── pause / resume ───────────────────────────────────────────────────────
@@ -132,7 +132,7 @@ pub struct OwnerClawback<'info> {
         bump = vault.bump,
         has_one = owner,
     )]
-    pub vault: Account<'info, Vault>,
+    pub vault: Box<Account<'info, Vault>>,
 
     /// Policy isn't strictly needed for the transfer, but we touch it to set
     /// `paused = true` atomically with the sweep so an in-flight `spend` from
@@ -143,17 +143,17 @@ pub struct OwnerClawback<'info> {
         bump = policy.bump,
         has_one = vault,
     )]
-    pub policy: Account<'info, Policy>,
+    pub policy: Box<Account<'info, Policy>>,
 
     #[account(address = vault.usdc_mint)]
-    pub usdc_mint: Account<'info, Mint>,
+    pub usdc_mint: Box<Account<'info, Mint>>,
 
     #[account(
         mut,
         associated_token::mint = usdc_mint,
         associated_token::authority = vault,
     )]
-    pub vault_usdc_ata: Account<'info, TokenAccount>,
+    pub vault_usdc_ata: Box<Account<'info, TokenAccount>>,
 
     /// Owner's USDC ATA — must already exist. Frontend ensures this before
     /// submitting (uses `getOrCreateAssociatedTokenAccount` in the same tx
@@ -163,7 +163,7 @@ pub struct OwnerClawback<'info> {
         token::mint = usdc_mint,
         token::authority = owner,
     )]
-    pub owner_usdc_ata: Account<'info, TokenAccount>,
+    pub owner_usdc_ata: Box<Account<'info, TokenAccount>>,
 
     pub token_program: Program<'info, Token>,
 }

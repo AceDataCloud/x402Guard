@@ -44,7 +44,7 @@ pub struct CreateVault<'info> {
         seeds = [SEED_VAULT, owner.key().as_ref(), &args.agent_id],
         bump,
     )]
-    pub vault: Account<'info, Vault>,
+    pub vault: Box<Account<'info, Vault>>,
 
     #[account(
         init,
@@ -53,11 +53,11 @@ pub struct CreateVault<'info> {
         seeds = [SEED_POLICY, vault.key().as_ref()],
         bump,
     )]
-    pub policy: Account<'info, Policy>,
+    pub policy: Box<Account<'info, Policy>>,
 
     /// USDC mint. The deployer enforces this is real USDC at deploy-config level
     /// (program does not hardcode the mint so we can also test on devnet).
-    pub usdc_mint: Account<'info, Mint>,
+    pub usdc_mint: Box<Account<'info, Mint>>,
 
     #[account(
         init,
@@ -65,7 +65,7 @@ pub struct CreateVault<'info> {
         associated_token::mint = usdc_mint,
         associated_token::authority = vault,
     )]
-    pub vault_usdc_ata: Account<'info, TokenAccount>,
+    pub vault_usdc_ata: Box<Account<'info, TokenAccount>>,
 
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,

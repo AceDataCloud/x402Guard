@@ -37,7 +37,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://x402guard:x402guard@postgres:5432/x402guard
       SOLANA_RPC_URL: https://api.devnet.solana.com
       SOLANA_CLUSTER: devnet
-      AGENT_VAULT_PROGRAM_ID: 5s9rscxcoXZMLwn2cenGYhj6zd5voyMHAmFBe4qhZQxH
+      AGENT_VAULT_PROGRAM_ID: 56TbAziiW8pDHFpRsxfnfBUfimBRTMCHw4gwDGw9uPW6
       USDC_MINT: 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
       # `python -c 'import secrets; print(secrets.token_hex(32))'`
       CONNECTION_VAULT_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
