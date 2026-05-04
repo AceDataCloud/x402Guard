@@ -15,7 +15,7 @@ solana-keygen new -o keypairs/program.json --no-bip39-passphrase --force
 
 # Patch the placeholder declare_id! with the real one.
 PROGRAM_ID=$(solana address -k keypairs/program.json)
-sed -i.bak "s|5s9rscxcoXZMLwn2cenGYhj6zd5voyMHAmFBe4qhZQxH|$PROGRAM_ID|g" \
+sed -i.bak "s|56TbAziiW8pDHFpRsxfnfBUfimBRTMCHw4gwDGw9uPW6|$PROGRAM_ID|g" \
   programs/agent_vault/src/lib.rs Anchor.toml api/.env.example
 
 anchor build

@@ -16,17 +16,17 @@ from api.routes import auth, health, mcp, mcp_sessions, vaults
 async def _lifespan(_: FastAPI):
     """Ensure DB schema exists.
 
-    For SQLite (local dev) we always run create_all — the file may not
-    exist yet. For Postgres we also run create_all when APP_ENV != 'production',
-    which covers `docker compose up`. Production runs Alembic migrations
-    out-of-band before pods start, so we never auto-create there.
+    `Base.metadata.create_all()` is idempotent — for an existing schema it's
+    a no-op single round-trip checking `pg_class` (or sqlite_master). We run
+    it on every boot so a fresh Postgres or a fresh container always lands
+    in a usable state without an out-of-band bootstrap step.
+
+    Production hardening (Alembic migrations + `init_models` removed from
+    the lifespan) is tracked separately. Until then this is the simplest
+    thing that works for the hackathon submission and any reviewer who
+    `docker compose up`s the stack.
     """
-    settings = get_settings()
-    if (
-        settings.database_url.startswith("sqlite")
-        or settings.app_env != "production"
-    ):
-        await init_models()
+    await init_models()
     yield
 
 

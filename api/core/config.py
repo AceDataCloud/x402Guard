@@ -37,7 +37,7 @@ class Settings(BaseSettings):
 
     # `solana-keygen grind` will give us a real ID before mainnet deploy.
     # Placeholder is the same vanity string used in the Anchor declare_id!.
-    agent_vault_program_id: str = "5s9rscxcoXZMLwn2cenGYhj6zd5voyMHAmFBe4qhZQxH"
+    agent_vault_program_id: str = "56TbAziiW8pDHFpRsxfnfBUfimBRTMCHw4gwDGw9uPW6"
 
     # USDC mint address. Defaults are Circle's official mints:
     #   devnet:  4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU

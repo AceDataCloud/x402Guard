@@ -44,7 +44,7 @@ pub struct Spend<'info> {
         seeds = [SEED_VAULT, vault.owner.as_ref(), &vault.agent_id],
         bump = vault.bump,
     )]
-    pub vault: Account<'info, Vault>,
+    pub vault: Box<Account<'info, Vault>>,
 
     #[account(
         mut,
@@ -52,17 +52,17 @@ pub struct Spend<'info> {
         bump = policy.bump,
         has_one = vault,
     )]
-    pub policy: Account<'info, Policy>,
+    pub policy: Box<Account<'info, Policy>>,
 
     #[account(address = vault.usdc_mint)]
-    pub usdc_mint: Account<'info, Mint>,
+    pub usdc_mint: Box<Account<'info, Mint>>,
 
     #[account(
         mut,
         associated_token::mint = usdc_mint,
         associated_token::authority = vault,
     )]
-    pub vault_usdc_ata: Account<'info, TokenAccount>,
+    pub vault_usdc_ata: Box<Account<'info, TokenAccount>>,
 
     /// Recipient's USDC ATA. Must already exist (the upstream x402 facilitator
     /// always has one — for now we don't auto-create here to keep the spend
@@ -72,7 +72,7 @@ pub struct Spend<'info> {
         mut,
         token::mint = usdc_mint,
     )]
-    pub recipient_usdc_ata: Account<'info, TokenAccount>,
+    pub recipient_usdc_ata: Box<Account<'info, TokenAccount>>,
 
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,

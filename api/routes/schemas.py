@@ -38,7 +38,7 @@ class CreateVaultRequest(BaseModel):
     agent_name: Annotated[str, Field(min_length=1, max_length=120)]
     daily_cap_usdc: Annotated[float, Field(gt=0, le=10_000)]
     per_call_cap_usdc: Annotated[float, Field(gt=0, le=10_000)]
-    endpoint_allowlist: Annotated[list[str], Field(min_length=1, max_length=8)]
+    endpoint_allowlist: Annotated[list[str], Field(min_length=1, max_length=4)]
     expires_at: datetime
 
 
