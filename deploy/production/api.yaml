@@ -1,8 +1,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: api
-  namespace: x402guard
+  name: x402guard-api
+  namespace: acedatacloud
   labels:
     app: x402guard
     component: api
@@ -23,22 +23,33 @@ spec:
         app: x402guard
         component: api
     spec:
+      imagePullSecrets:
+        - name: docker-registry
       containers:
         - name: api
-          image: ghcr.io/acedatacloud/x402guard-api:__BUILD__
+          image: ghcr.io/acedatacloud/x402guard-api:${TAG}
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 8000
           env:
             - name: APP_ENV
               value: production
+            - name: APP_DEBUG
+              value: "false"
             - name: SOLANA_CLUSTER
               value: mainnet
+            - name: SOLANA_RPC_URL
+              value: https://api.mainnet-beta.solana.com
+            - name: USDC_MINT
+              value: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+            - name: AGENT_VAULT_PROGRAM_ID
+              value: "5s9rscxcoXZMLwn2cenGYhj6zd5voyMHAmFBe4qhZQxH"
+            - name: CORS_ALLOWED_ORIGINS
+              value: https://x402guard.acedata.cloud
           envFrom:
             - secretRef:
                 name: x402guard-secrets
-            - configMapRef:
-                name: x402guard-config
           readinessProbe:
             httpGet:
               path: /health
@@ -63,8 +74,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: api
-  namespace: x402guard
+  name: x402guard-api
+  namespace: acedatacloud
+  labels:
+    app: x402guard
+    component: api
 spec:
   type: ClusterIP
   selector:
@@ -73,3 +87,5 @@ spec:
   ports:
     - port: 8000
       targetPort: http
+      protocol: TCP
+      name: http

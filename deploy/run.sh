@@ -1,43 +1,47 @@
 #!/usr/bin/env bash
 #
-# Deploy x402guard to a Kubernetes cluster.
+# Apply x402guard production manifests to the AceDataCloud cluster.
 #
-# Substitutes `__BUILD__` in the manifests with the GITHUB_RUN_ID
-# (or `local` if running by hand) and applies them in dependency order.
+# Substitutes ${TAG} in the manifests with $BUILD_NUMBER (from CI) or
+# `local` (when run by hand) and applies them in dependency order.
 #
-# Required secrets must already exist:
-#   $ kubectl -n x402guard create secret generic x402guard-secrets \
-#       --from-literal=APP_SECRET_KEY=... \
-#       --from-literal=DATABASE_URL=postgresql+asyncpg://... \
-#       --from-literal=CONNECTION_VAULT_KEY=$(python -c 'import secrets; print(secrets.token_hex(32))')
+# Required: a Kubernetes secret in the acedatacloud namespace named
+# `x402guard-secrets` containing:
+#   APP_SECRET_KEY        — Django/HMAC session signing key
+#   DATABASE_URL          — postgresql+asyncpg://user:pass@host:5432/db
+#   CONNECTION_VAULT_KEY  — 32-byte hex; AES-256-GCM master key
+#                           that wraps each vault's delegation private key
+# Bootstrap (run once):
+#   kubectl -n acedatacloud create secret generic x402guard-secrets \
+#     --from-literal=APP_SECRET_KEY=$(openssl rand -hex 32) \
+#     --from-literal=DATABASE_URL=postgresql+asyncpg://... \
+#     --from-literal=CONNECTION_VAULT_KEY=$(openssl rand -hex 32)
+#
+# The TLS wildcard cert (tls-wildcard-acedata-cloud) and image-pull
+# secret (docker-registry) are platform-wide — already provisioned.
 
 set -euo pipefail
 
-BUILD="${GITHUB_RUN_ID:-local}"
+TAG="${BUILD_NUMBER:-local}"
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/production" && pwd)"
-NS=x402guard
-
-echo "==> Applying namespace"
-kubectl apply -f "$DIR/namespace.yaml"
-
-echo "==> Applying configmap"
-kubectl apply -f "$DIR/configmap.yaml"
+NS=acedatacloud
 
 if ! kubectl -n "$NS" get secret x402guard-secrets >/dev/null 2>&1; then
-  echo "ERROR: Secret x402guard-secrets is missing in namespace $NS." >&2
-  echo "Create it with the snippet at the top of this script before running deploy." >&2
+  echo "ERROR: secret x402guard-secrets is missing in namespace $NS." >&2
+  echo "       Bootstrap the secret using the snippet at the top of this file." >&2
   exit 1
 fi
 
-for f in api.yaml web.yaml ingress.yaml; do
-  echo "==> Applying $f (build=$BUILD)"
-  sed "s|__BUILD__|$BUILD|g" "$DIR/$f" | kubectl apply -f -
+for f in postgres.yaml api.yaml web.yaml ingress.yaml; do
+  echo "==> applying $f (tag=$TAG)"
+  sed "s|\\\${TAG}|$TAG|g" "$DIR/$f" | kubectl apply -f -
 done
 
-echo "==> Waiting for rollouts"
-kubectl -n "$NS" rollout status deploy/api  --timeout=180s
-kubectl -n "$NS" rollout status deploy/web  --timeout=180s
+echo "==> waiting for rollouts"
+kubectl -n "$NS" rollout status statefulset/x402guard-postgres --timeout=180s
+kubectl -n "$NS" rollout status deploy/x402guard-api --timeout=180s
+kubectl -n "$NS" rollout status deploy/x402guard-web --timeout=180s
 
-echo "==> Done. Probing https://x402guard.acedata.cloud/health"
-curl --max-time 10 -fsS https://x402guard.acedata.cloud/health || \
-  echo "(probe failed — check ingress + DNS)"
+echo "==> probing https://x402guard.acedata.cloud/health"
+curl --max-time 10 -fsS https://x402guard.acedata.cloud/health \
+  || echo "(probe failed — check ingress + DNS + LB upstream registration)"

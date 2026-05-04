@@ -1,0 +1,104 @@
+# Dedicated Postgres for x402guard. Single replica + PVC. Same engine
+# the docker-compose stack uses, so the bug surface stays uniform.
+#
+# Bootstrap is in `deploy/run.sh`: a one-time random password is written
+# into the x402guard-secrets/DATABASE_URL on first deploy, and the
+# Postgres POSTGRES_PASSWORD env reads from the same secret.
+#
+# This DB stores cache rows only — projection of on-chain state. The
+# Anchor program is the source of truth, so loss of this PVC means a
+# UI rebuild step (re-fetching every vault from chain), not data loss.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: x402guard-postgres
+  namespace: acedatacloud
+  labels:
+    app: x402guard
+    component: postgres
+spec:
+  type: ClusterIP
+  clusterIP: None  # headless; pods reach via stable DNS
+  selector:
+    app: x402guard
+    component: postgres
+  ports:
+    - port: 5432
+      targetPort: pg
+      name: pg
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: x402guard-postgres
+  namespace: acedatacloud
+  labels:
+    app: x402guard
+    component: postgres
+spec:
+  serviceName: x402guard-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: x402guard
+      component: postgres
+  template:
+    metadata:
+      labels:
+        app: x402guard
+        component: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - name: pg
+              containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: x402guard
+            - name: POSTGRES_DB
+              value: x402guard
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: x402guard-secrets
+                  key: POSTGRES_PASSWORD
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          readinessProbe:
+            exec:
+              command: [pg_isready, -U, x402guard, -d, x402guard]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: [pg_isready, -U, x402guard, -d, x402guard]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        # cbs-ssd binds with WaitForFirstConsumer so the volume is created
+        # in the same zone as the pod's eventual node, avoiding the
+        # "Immediate" PVC zone-pinning failure cbs has.
+        storageClassName: cbs-ssd
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            # cbs-ssd minimum is 10Gi; smaller requests fail with
+            # "disk size is invalid. Must in [10, 32000]".
+            storage: 10Gi
