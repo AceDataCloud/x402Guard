@@ -1,0 +1,50 @@
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Anchor / Rust
+target/
+**/*.rs.bk
+.anchor/
+test-ledger/
+programs/**/Cargo.lock
+
+# Node / web
+node_modules/
+dist/
+build/
+.turbo/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Database / runtime
+*.sqlite3
+*.db
+db.sqlite3-journal
+
+# Solana keypairs (NEVER commit)
+*.keypair.json
+keypairs/
+wallets/
