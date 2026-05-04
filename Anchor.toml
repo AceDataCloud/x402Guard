@@ -7,10 +7,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-agent_vault = "Vau1tGuArD11111111111111111111111111111111"
+agent_vault = "5s9rscxcoXZMLwn2cenGYhj6zd5voyMHAmFBe4qhZQxH"
 
 [programs.devnet]
-agent_vault = "Vau1tGuArD11111111111111111111111111111111"
+agent_vault = "5s9rscxcoXZMLwn2cenGYhj6zd5voyMHAmFBe4qhZQxH"
 
 [registry]
 url = "https://api.apr.dev"
