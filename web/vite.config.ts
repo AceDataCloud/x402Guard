@@ -9,7 +9,20 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+      // @solana/web3.js + spl-token expect Node's Buffer in the browser.
+      // Map the bare 'buffer' import to the npm package and shim
+      // globalThis.Buffer once at app boot (see src/main.ts).
+      buffer: "buffer/",
     },
+  },
+  define: {
+    // spl-token + web3.js sometimes touch `process.env`. Stub both so
+    // they don't blow up at import time.
+    "process.env": {},
+    global: "globalThis",
+  },
+  optimizeDeps: {
+    include: ["buffer"],
   },
   server: {
     port: 5173,

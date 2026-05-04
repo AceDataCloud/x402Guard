@@ -1,3 +1,7 @@
+// Buffer polyfill — MUST be the first import so it lands in the module
+// graph before @solana/web3.js (transitively imported via store + wallet).
+import "./polyfills";
+
 import { createApp } from "vue";
 import { createPinia } from "pinia";
 
