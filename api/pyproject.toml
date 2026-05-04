@@ -39,7 +39,11 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM"]
-ignore = []
+# B008: FastAPI's Depends() pattern is the standard idiom — disabling globally
+# rather than littering the code with per-line ignores.
+# SIM115/SIM105: in conftest module-level state we deliberately do not use
+# context managers (the tempfile spans the whole pytest session).
+ignore = ["B008"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
