@@ -1,0 +1,125 @@
+/* x402guard — global styles. Keep it minimal: dark background, Solana
+   purple/green accent, generous spacing. The pitch should breathe. */
+
+:root {
+  --bg: #0b0b14;
+  --bg-card: #131322;
+  --border: #25253c;
+  --text: #f1f1f5;
+  --text-muted: #a3a3b8;
+  --solana-purple: #9945ff;
+  --solana-green: #14f195;
+  --danger: #ff5c75;
+  --warning: #ffb547;
+  --radius: 12px;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.04), 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+a {
+  color: var(--solana-green);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+button {
+  font: inherit;
+  border-radius: 999px;
+  padding: 0.6em 1.2em;
+  border: 1px solid var(--border);
+  background: linear-gradient(135deg, var(--solana-purple) 0%, var(--solana-green) 200%);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.05s ease;
+}
+button:hover {
+  transform: translateY(-1px);
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+}
+button.secondary {
+  background: transparent;
+  color: var(--text);
+}
+button.danger {
+  background: var(--danger);
+}
+
+input,
+select {
+  font: inherit;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.55em 0.8em;
+  width: 100%;
+}
+input:focus,
+select:focus {
+  outline: 2px solid var(--solana-purple);
+  outline-offset: 0;
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  box-shadow: var(--shadow);
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.container {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.btn-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.toast {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  max-width: 360px;
+  box-shadow: var(--shadow);
+  z-index: 100;
+}
+.toast.error {
+  border-color: var(--danger);
+}
