@@ -18,8 +18,8 @@
 //!
 //! ## Instructions
 //!
-//! - `create_vault` ✅ this PR
-//! - `spend`        — follow-up PR (policy enforcement + PDA-signed transfer)
+//! - `create_vault` ✅
+//! - `spend`        ✅ this PR (policy enforcement + PDA-signed transfer)
 //! - `pause` / `resume` / `clawback` / `update_policy` — follow-up PRs
 //!
 //! See [`README`](https://github.com/AceDataCloud/x402guard) and
@@ -46,5 +46,12 @@ pub mod agent_vault {
     /// the vault's SPL USDC associated token account in a single ix.
     pub fn create_vault(ctx: Context<CreateVault>, args: CreateVaultArgs) -> Result<()> {
         instructions::create_vault::handler(ctx, args)
+    }
+
+    /// Spend USDC out of a vault. Authorised by the vault's delegation key,
+    /// not the owner. The program enforces every policy gate (paused, expired,
+    /// daily cap, per-call cap, allowlist, nonce replay) before transferring.
+    pub fn spend(ctx: Context<Spend>, args: SpendArgs) -> Result<()> {
+        instructions::spend::handler(ctx, args)
     }
 }
