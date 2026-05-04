@@ -1,0 +1,3 @@
+[features]
+seeds = false
+skip-lint = false
