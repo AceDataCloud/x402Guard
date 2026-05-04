@@ -1,24 +1,17 @@
-"""Tests for SQLAlchemy models — round-trip persistence via in-memory SQLite."""
+"""Tests for SQLAlchemy models — round-trip persistence via SQLite."""
 
 from __future__ import annotations
 
-import asyncio
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from api.core.db import SessionLocal, init_models
+from api.core.db import SessionLocal
 from api.core.models import MCPSession, Vault
 from sqlalchemy import select
 
 
-@pytest.fixture(scope="module", autouse=True)
-def _ensure_schema() -> None:
-    asyncio.get_event_loop_policy().new_event_loop().run_until_complete(init_models())
-
-
 @pytest.mark.asyncio
 async def test_vault_round_trip() -> None:
-    await init_models()  # idempotent for SQLite memory
     async with SessionLocal() as s:
         v = Vault(
             owner_pubkey="GxK8ownerExampleExampleExampleExampleExample",
@@ -48,7 +41,6 @@ async def test_vault_round_trip() -> None:
 
 @pytest.mark.asyncio
 async def test_mcp_session_attaches_to_vault() -> None:
-    await init_models()
     async with SessionLocal() as s:
         v = Vault(
             owner_pubkey="GxK8owner2ExampleExampleExampleExampleExample",
