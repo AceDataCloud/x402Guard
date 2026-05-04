@@ -420,6 +420,134 @@ curl -sS https://api.devnet.solana.com -H 'Content-Type: application/json' \
 
 ---
 
+## End-to-end CLI smoke (no browser)
+
+Drives the full Phantom-auth → create-vault → MCP-session → tools/list flow against the live stack using a throwaway Ed25519 keypair. Useful for CI smoke after a deploy and for sanity-checking that nothing regressed without firing up Phantom.
+
+```bash
+cd api
+poetry install || pip install -e .
+
+python3 - <<'PY'
+import asyncio, base64, json
+import httpx
+from datetime import UTC, datetime, timedelta
+from nacl.signing import SigningKey
+from solders.pubkey import Pubkey
+
+BASE = "https://x402guard.acedata.cloud"
+
+async def main():
+    async with httpx.AsyncClient(base_url=BASE, timeout=15) as c:
+        # 1. Phantom-style: GET challenge → Ed25519 sign → POST login
+        challenge = (await c.get("/api/v1/auth/challenge")).json()
+        sk = SigningKey.generate()
+        pubkey = str(Pubkey.from_bytes(bytes(sk.verify_key)))
+        sig = base64.b64encode(sk.sign(challenge["message"].encode()).signature).decode()
+        login = (
+            await c.post(
+                "/api/v1/auth/login",
+                json={"pubkey": pubkey, "message": challenge["message"], "signature": sig},
+            )
+        ).json()
+        token = login["session_token"]
+        H = {"Authorization": f"Bearer {token}"}
+        print(f"AUTH_OK            pubkey={pubkey[:10]}…")
+
+        # 2. Build an unsigned create_vault tx (we won't actually sign + send,
+        #    just confirm the backend produced a valid tx envelope + persisted
+        #    the pending row).
+        body = {
+            "agent_name": "Smoke-Agent",
+            "daily_cap_usdc": 1.0,
+            "per_call_cap_usdc": 0.5,
+            "endpoint_allowlist": ["api.acedata.cloud"],
+            "expires_at": (datetime.now(UTC) + timedelta(days=7)).isoformat(),
+        }
+        create = (await c.post("/api/v1/vaults/create", headers=H, json=body)).json()
+        print(f"CREATE_OK          vault_pda={create['vault_pda'][:12]}…  tx_b64_len={len(create['tx_b64'])}")
+
+        listed = (await c.get("/api/v1/vaults", headers=H)).json()
+        print(f"LIST_OK            count={len(listed['vaults'])}")
+        vid = listed["vaults"][0]["id"]
+
+        # 3. Mint an MCP session for the vault we just created.
+        mcp = (
+            await c.post(
+                f"/api/v1/vaults/{vid}/mcp-sessions",
+                headers=H,
+                json={"label": "smoke-test"},
+            )
+        ).json()
+        print(f"MCP_SESSION_OK     mcp_url={mcp['mcp_url']}")
+
+        # 4. Hit the MCP endpoint directly. tools/list must return all 4 tools.
+        rpc = await c.post(
+            mcp["mcp_url"],
+            json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+        )
+        names = sorted(t["name"] for t in rpc.json()["result"]["tools"])
+        print(f"MCP_TOOLS_LIST_OK  tools={names}")
+
+asyncio.run(main())
+PY
+```
+
+Expected output:
+
+```
+AUTH_OK            pubkey=ABcD123…
+CREATE_OK          vault_pda=Hx12abcdEF…  tx_b64_len=756
+LIST_OK            count=1
+MCP_SESSION_OK     mcp_url=https://x402guard.acedata.cloud/mcp/<token>
+MCP_TOOLS_LIST_OK  tools=['aceguard_balance', 'aceguard_history', 'aceguard_pay_for_api', 'aceguard_spend']
+```
+
+The script does **not** execute `spend` (that needs real devnet USDC + a delegation key signing on-chain) — for that, see the in-browser walkthrough above.
+
+---
+
+## Inspect the MCP endpoint with `mcp-inspector`
+
+The `/mcp/<token>` URL works with any MCP client. Quickest way to poke it without writing code:
+
+```bash
+# 1. Mint an MCP URL for one of your vaults (web UI → Vault detail → +New MCP URL → Copy)
+MCP_URL="https://x402guard.acedata.cloud/mcp/<your-token>"
+
+# 2. Run the official inspector (npx; no install needed)
+npx @modelcontextprotocol/inspector --transport http --url "$MCP_URL"
+
+# 3. In the popped-up browser tab:
+#    - Click "Connect"  → you'll see "x402guard 0.1.0" in serverInfo
+#    - Click "List tools"
+#    - Expand "aceguard_balance" → Run (no args) → JSON payload
+#    - Expand "aceguard_pay_for_api" → fill `url` = "https://api.acedata.cloud/midjourney/imagine"
+#                                           `json_body` = {"prompt": "test"}
+#                                       → Run
+```
+
+If `aceguard_pay_for_api` returns `on-chain spend rejected: …`, the on-chain `VaultError` reason maps 1:1 to the agent error message — `vault_paused`, `per_call_cap_exceeded`, `daily_cap_exceeded`, `endpoint_not_allowed`, etc. That's the policy boundary doing its job.
+
+---
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `tx confirmation timed out` after **Create vault** | Phantom is on **mainnet** but the program is on **devnet** | Phantom → ⚙️ Developer Settings → Network → **Devnet** |
+| Phantom popup says *"This dapp couldn't connect"* | Phantom blocks the site (extension is locked or ad-blocker interferes) | Click the Phantom toolbar icon → unlock; disable shields for `x402guard.acedata.cloud` |
+| `spend rejected: endpoint_not_allowed` in Claude | The URL host doesn't sha256-match a vault allowlist entry | Open the vault detail page → confirm `Allowlist` shows the host. The hash check normalises scheme + path + case but the **host string itself must match exactly** |
+| `spend rejected: per_call_cap_exceeded` for tiny calls | The vault's `per_call_cap_usdc` is below the upstream API's price | Raise the per-call cap from the vault detail page (1 Phantom signature) |
+| Top-up Phantom popup shows *"insufficient funds"* | Wallet has **no devnet USDC** | Visit https://spl-token-faucet.com/?token-name=USDC-Dev → mint to your wallet. Devnet USDC mint is `4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU` |
+| `Failed to load vaults: Request failed with status code 500` | Backend lost its DB connection or a fresh deploy hasn't run schema migrations | Check `kubectl -n acedatacloud logs deploy/x402guard-api`. The lifespan hook auto-runs `init_models()` on every boot, so a pod restart usually clears it |
+| MCP `tools/list` returns `unknown or revoked token` | Session token revoked or vault deleted | Go to the vault detail page and create a fresh MCP URL |
+| `aceguard_pay_for_api` hangs >30 s | Upstream API is slow; Solana RPC under load | The 180 s ingress timeout covers most cases. If recurring, switch to a paid RPC by setting `SOLANA_RPC_URL` in `x402guard-secrets` |
+| Phantom signs but "Solscan tx not found" | Phantom is set to **mainnet** while frontend confirms on **devnet** (or vice versa) | Make sure both Phantom and the site agree. The site's cluster is exposed at `/.well-known/x402guard` |
+| Devnet airdrop returns `429 / faucet dry` | Same IP rate-limited | Use https://faucet.solana.com (browser captcha) or a paid RPC's faucet (Helius/QuickNode) |
+
+---
+
 ## Status
 
 - Anchor program ✅ deployed to devnet (`56TbAzii…uPW6`); 6 instructions, 19 ts-mocha tests
