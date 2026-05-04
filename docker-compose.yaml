@@ -1,0 +1,61 @@
+# Local one-shot stack:
+#
+#   docker compose up --build
+#   open http://localhost:8080
+#
+# Brings up:
+#   - postgres (so we exercise the same DB engine production uses)
+#   - api (FastAPI + SQLAlchemy + uvicorn)
+#   - web (Vue 3 → nginx with /api + /mcp proxied to api)
+#
+# Anchor program is deployed separately to devnet/mainnet — the backend
+# never runs the program locally; it just builds + signs + sends txs.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: x402guard
+      POSTGRES_PASSWORD: x402guard
+      POSTGRES_DB: x402guard
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U x402guard -d x402guard"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    volumes:
+      - x402guard-pg:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "false"
+      APP_SECRET_KEY: change-me-in-production
+      DATABASE_URL: postgresql+asyncpg://x402guard:x402guard@postgres:5432/x402guard
+      SOLANA_RPC_URL: https://api.devnet.solana.com
+      SOLANA_CLUSTER: devnet
+      AGENT_VAULT_PROGRAM_ID: 5s9rscxcoXZMLwn2cenGYhj6zd5voyMHAmFBe4qhZQxH
+      USDC_MINT: 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
+      # `python -c 'import secrets; print(secrets.token_hex(32))'`
+      CONNECTION_VAULT_KEY: 0000000000000000000000000000000000000000000000000000000000000000
+      CORS_ALLOWED_ORIGINS: "http://localhost:8080"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+volumes:
+  x402guard-pg:

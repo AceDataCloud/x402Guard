@@ -1,0 +1,74 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "api/**"
+      - "web/**"
+      - "deploy/**"
+      - ".github/workflows/deploy.yaml"
+  workflow_dispatch: {}
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_API: ghcr.io/${{ github.repository_owner }}/x402guard-api
+  IMAGE_WEB: ghcr.io/${{ github.repository_owner }}/x402guard-web
+
+jobs:
+  images:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build + push API
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: api/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_API }}:${{ github.run_id }}
+            ${{ env.IMAGE_API }}:latest
+
+      - name: Build + push web
+        uses: docker/build-push-action@v6
+        with:
+          context: web
+          file: web/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_WEB }}:${{ github.run_id }}
+            ${{ env.IMAGE_WEB }}:latest
+
+  # Cluster credentials live in repo secrets the AceDataCloud platform
+  # team manages; the deploy step is gated on the platform secret being
+  # present so contributor PRs build images without trying to deploy.
+  rollout:
+    needs: images
+    runs-on: ubuntu-latest
+    if: ${{ vars.DEPLOY_TO_K8S == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.30.2
+      - name: Configure cluster
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
+      - name: Deploy
+        env:
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: bash deploy/run.sh

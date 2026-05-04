@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: x402guard
+  labels:
+    app: x402guard
+    component: web
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: x402guard
+      component: web
+  template:
+    metadata:
+      labels:
+        app: x402guard
+        component: web
+    spec:
+      containers:
+        - name: web
+          image: ghcr.io/acedatacloud/x402guard-web:__BUILD__
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /index.html
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /index.html
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: x402guard
+spec:
+  type: ClusterIP
+  selector:
+    app: x402guard
+    component: web
+  ports:
+    - port: 80
+      targetPort: http

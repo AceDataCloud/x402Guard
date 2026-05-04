@@ -1,0 +1,52 @@
+# Caddy + ACME terminate TLS for x402guard.acedata.cloud and route /api,
+# /mcp, /.well-known to the api service. The web service handles the
+# SPA + assets at /.
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: x402guard
+  namespace: x402guard
+  annotations:
+    # Match the AceDataCloud platform Caddy/ACME convention. Adjust
+    # if you're running a different ingress controller.
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [x402guard.acedata.cloud]
+      secretName: x402guard-tls
+  rules:
+    - host: x402guard.acedata.cloud
+      http:
+        paths:
+          # Backend lives at /api, /mcp, /.well-known
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  number: 8000
+          - path: /mcp
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  number: 8000
+          - path: /.well-known
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  number: 8000
+          # Everything else is the SPA + static assets.
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  number: 80

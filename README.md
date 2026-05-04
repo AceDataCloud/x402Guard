@@ -136,7 +136,22 @@ Connect Phantom on devnet, request airdrop, mint some devnet USDC, and you're of
 
 🚧 **Active build for Colosseum Frontier 2026** (submission deadline May 11, 2026).
 
-See [`.plans/X402GUARD.md`](.plans/X402GUARD.md) for the full plan, six-day track schedule, demo script, and risk register.
+- Anchor program ✅ — `programs/agent_vault/` (`create_vault`, `spend`, `pause`, `resume`, `update_policy`, `clawback`)
+- FastAPI backend ✅ — `api/` (Phantom auth, vault tx builders, MCP at `/mcp/<token>`, spend executor)
+- Vue 3 Dapp ✅ — `web/` (create / top-up / pause / resume / clawback / MCP-session UI)
+- Docker + K8s + CI ✅ — `deploy/`, `.github/workflows/`
+- 4-minute demo runbook ✅ — [`DEMO.md`](DEMO.md)
+
+See [`.plans/X402GUARD.md`](.plans/X402GUARD.md) for the full design plan, six-day track schedule, and risk register.
+
+## Local stack (one command)
+
+```bash
+docker compose up --build
+open http://localhost:8080
+```
+
+Brings up Postgres + the FastAPI backend + the Vue Dapp behind nginx, all wired together. Phantom needs to be on devnet (the default cluster). See [`DEMO.md`](DEMO.md) for the full demo walkthrough.
 
 ---
 

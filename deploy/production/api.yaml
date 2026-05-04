@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: x402guard
+  labels:
+    app: x402guard
+    component: api
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: x402guard
+      component: api
+  template:
+    metadata:
+      labels:
+        app: x402guard
+        component: api
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/acedatacloud/x402guard-api:__BUILD__
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: APP_ENV
+              value: production
+            - name: SOLANA_CLUSTER
+              value: mainnet
+          envFrom:
+            - secretRef:
+                name: x402guard-secrets
+            - configMapRef:
+                name: x402guard-config
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: x402guard
+spec:
+  type: ClusterIP
+  selector:
+    app: x402guard
+    component: api
+  ports:
+    - port: 8000
+      targetPort: http
