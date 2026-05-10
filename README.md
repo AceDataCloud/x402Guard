@@ -181,21 +181,58 @@ In the **MCP sessions** card on the vault detail page:
 
 This URL is the **only** thing the agent ever sees. It's bound to one vault; the user can revoke it any time.
 
-### Step 4 — Wire the URL into Claude Desktop (1 min)
+### Step 4 — Connect a client to your MCP URL (1 min)
 
-Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+The MCP endpoint is plain JSON-RPC over HTTP POST. Three ways to use it,
+in increasing order of "needs an LLM in the loop":
+
+#### 4a. Verify it works at all (no client required)
+
+Run the bundled CLI demo against your URL — it speaks JSON-RPC directly,
+no MCP client / Claude / Cursor / SDK needed:
+
+```bash
+# Python (httpx + stdlib only)
+python scripts/demo.py https://x402guard.acedata.cloud/mcp/<TOKEN-FROM-STEP-3>
+
+# or with bash + curl + jq
+./scripts/mcp-curl.sh https://x402guard.acedata.cloud/mcp/<TOKEN-FROM-STEP-3>
+```
+
+The script lists tools, reads on-chain balance, calls
+`aceguard_pay_for_api` (full x402 dance — upstream 402 → on-chain
+`agent_vault.spend()` → X-Payment retry → 200), and re-reads the balance
+to confirm the spend landed. **If this passes, your endpoint is healthy
+and any "MCP could not be loaded" error is a client-side problem.**
+
+#### 4b. Claude Desktop (via the `mcp-remote` bridge)
+
+Claude Desktop only speaks **stdio** MCP — it does not load HTTP MCP
+endpoints from a `{"url": "..."}` config (that schema is for Claude.ai
+web "Custom Connectors", a different product). The community-standard
+bridge is `mcp-remote`:
 
 ```json
 {
   "mcpServers": {
     "aceguard": {
-      "url": "https://x402guard.acedata.cloud/mcp/<TOKEN-FROM-STEP-3>"
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://x402guard.acedata.cloud/mcp/<TOKEN-FROM-STEP-3>"
+      ]
     }
   }
 }
 ```
 
-Quit + relaunch Claude. The four tools light up:
+Save to `~/Library/Application Support/Claude/claude_desktop_config.json`
+(macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows). Then
+**fully quit Claude (Cmd+Q, not just close the window)** and relaunch.
+Requires Node ≥ 18 on `PATH` so `npx` can fetch `mcp-remote`.
+
+The four tools light up:
 
 | Tool | Use |
 |---|---|
@@ -203,6 +240,31 @@ Quit + relaunch Claude. The four tools light up:
 | `aceguard_history` | List recent spends with Solscan tx links |
 | `aceguard_spend` | Direct USDC transfer (low-level) |
 | `aceguard_pay_for_api` | **The high-level wrapper** — give it a paid URL, it does the full x402 dance |
+
+#### 4c. Cursor / Cline / any other HTTP-MCP-aware client
+
+Cursor and Cline natively understand HTTP / Streamable HTTP MCP, so they
+take the URL directly without a bridge. Consult that client's MCP docs
+for the exact config field — it is usually `mcpServers.<name>.url` (same
+shape Claude Desktop *almost* supports).
+
+#### Or skip MCP entirely — talk to `api.acedata.cloud` from the SDK
+
+If your goal is just to **make a paid AceDataCloud API call from your
+own wallet** (without the on-chain policy enforcement that x402guard
+adds), the [`@acedatacloud/x402-client`][x402client] SDK is the simpler
+path: it plugs into [`@acedatacloud/sdk`][sdk] as a `payment_handler`
+that signs the X-Payment header from your local key. See its
+[`scripts/test-solana-e2e.ts`][solana-e2e] for a 70-line live demo.
+
+x402guard adds value on top of that path — daily / per-call caps and
+endpoint allowlists enforced **on-chain** by an Anchor program — but you
+can use the SDK first to confirm the wire-format works, then graduate
+to x402guard when you want the spending guardrails.
+
+[x402client]: https://github.com/AceDataCloud/X402Client
+[sdk]: https://github.com/AceDataCloud/SDK
+[solana-e2e]: https://github.com/AceDataCloud/X402Client/blob/main/typescript/scripts/test-solana-e2e.ts
 
 ### Step 5 — Use it (1 min)
 

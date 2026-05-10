@@ -93,24 +93,26 @@ Times are markers for the final edit; live run is closer to 6 minutes including 
 
 > Voiceover: *"Vault is now funded with 5 USDC. The vault PDA is just an address — there's no private key to steal."*
 
-### 1:20–1:50 — issue MCP URL + paste into Claude
+### 1:20–1:50 — issue MCP URL + connect a client
 
 1. **MCP sessions** card → enter label `claude-desktop` → **+ New MCP URL**.
 2. Click **Copy** on the new row.
 3. Cut to terminal:
 
    ```bash
-   cat ~/.claude/claude_desktop_config.json
-   # paste the URL into mcpServers.aceguard.url, save, relaunch Claude.
+   cat ~/Library/Application\ Support/Claude/claude_desktop_config.json
+   # paste the bridge config below, save, fully quit + relaunch Claude.
    ```
 
-   Example config:
+   Claude Desktop only speaks stdio MCP, so we wrap the HTTP endpoint with
+   `mcp-remote` (community standard bridge, fetched on demand by `npx`):
 
    ```json
    {
      "mcpServers": {
        "aceguard": {
-         "url": "https://x402guard.acedata.cloud/mcp/<TOKEN>"
+         "command": "npx",
+         "args": ["-y", "mcp-remote", "https://x402guard.acedata.cloud/mcp/<TOKEN>"]
        }
      }
    }
@@ -118,7 +120,12 @@ Times are markers for the final edit; live run is closer to 6 minutes including 
 
 4. Cut back to Claude Desktop — `aceguard_balance`, `aceguard_history`, `aceguard_spend`, `aceguard_pay_for_api` light up in the tools panel.
 
-> Voiceover: *"Any MCP-compatible client works — Claude, Cursor, Cline, custom agents."*
+> Voiceover: *"Any MCP-compatible client works. Cursor and Cline take the URL directly; Claude Desktop wraps it with a local stdio bridge. The endpoint itself is plain JSON-RPC — you can drive it from `curl` if you want."*
+
+> 🎬 **Optional B-roll for the demo video**: split-screen the Claude
+> Desktop call against a parallel `python scripts/demo.py <URL>` run in a
+> terminal. Both produce the same on-chain `agent_vault.spend()` ix —
+> proving the boundary lives in the program, not the client.
 
 ### 1:50–2:50 — happy-path spend
 
@@ -175,7 +182,9 @@ ffmpeg -f avfoundation -framerate 30 -i "1:0" \
 | Phantom shows "transaction failed" | Page refresh, click Create vault again — backend rebuilds the same tx because the row is keyed off `vault_pda`. |
 | Solana RPC times out (mainnet during peak) | Switch `VITE_SOLANA_RPC_URL` env in `web/.env` to a paid RPC (Helius / QuickNode) and rebuild. |
 | `aceguard_pay_for_api` returns "on-chain spend rejected: confirm_timeout" | Retry the same prompt; nonce is freshly issued, no replay risk. |
-| Claude Desktop doesn't see the tools after relaunch | Close all Claude windows + relaunch. Tool list refresh happens on app boot, not per-conversation. |
+| Claude Desktop shows "MCP could not be loaded" with `{"url": "..."}` config | Switch the config to the `mcp-remote` bridge form (see Step 1:20–1:50). The `{"url": ...}` schema is for Claude.ai web Custom Connectors, not for Claude Desktop, which only speaks stdio. |
+| Claude Desktop doesn't see the tools after relaunch | Fully **Cmd+Q** quit Claude (closing the window doesn't reload the MCP config), then relaunch. Tool list refresh happens on app boot, not per-conversation. |
+| Suspect the endpoint itself is broken | Run `python scripts/demo.py <MCP-URL>` (or `./scripts/mcp-curl.sh`) — drives the JSON-RPC directly. If that works the endpoint is fine and the issue is client-side. |
 
 ## Post-demo cleanup
 
