@@ -63,12 +63,20 @@ async def _next_nonce(db: AsyncSession, vault: Vault) -> int:
 
 
 async def _confirm(rpc, signature: str, timeout_s: float = 30.0) -> None:
-    """Block until the cluster confirms the tx (or raise on timeout)."""
+    """Block until the cluster confirms the tx (or raise on timeout).
+
+    `rpc.get_signature_statuses` in modern solana-py / solders requires a list
+    of `Signature` objects (not strings). Wrap on entry so callers can keep
+    passing the base58 string we stash on `SpendResult.tx_signature`.
+    """
     import asyncio
 
+    from solders.signature import Signature
+
+    sig_obj = Signature.from_string(signature)
     deadline = asyncio.get_event_loop().time() + timeout_s
     while asyncio.get_event_loop().time() < deadline:
-        status = await rpc.get_signature_statuses([signature])
+        status = await rpc.get_signature_statuses([sig_obj])
         s = status.value[0]
         if s is not None:
             if s.err is not None:
