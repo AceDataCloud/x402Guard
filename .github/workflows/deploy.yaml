@@ -12,8 +12,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_API: ghcr.io/${{ github.repository_owner }}/x402guard-api
-  IMAGE_WEB: ghcr.io/${{ github.repository_owner }}/x402guard-web
 
 jobs:
   images:
@@ -21,8 +19,24 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      image_api: ${{ steps.names.outputs.image_api }}
+      image_web: ${{ steps.names.outputs.image_web }}
     steps:
       - uses: actions/checkout@v4
+
+      # GHCR rejects mixed-case image names. `github.repository_owner` is
+      # `AceDataCloud` (mixed case) on this repo, so we lower-case it once
+      # and reuse via job outputs / step env. See the historical failure:
+      # > ERROR: failed to build: invalid tag
+      # >   "ghcr.io/AceDataCloud/x402guard-api:...":
+      # >   repository name must be lowercase
+      - name: Compute lowercase image names
+        id: names
+        run: |
+          owner_lc=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "image_api=ghcr.io/${owner_lc}/x402guard-api" >> "$GITHUB_OUTPUT"
+          echo "image_web=ghcr.io/${owner_lc}/x402guard-web" >> "$GITHUB_OUTPUT"
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -38,8 +52,8 @@ jobs:
           file: api/Dockerfile
           push: true
           tags: |
-            ${{ env.IMAGE_API }}:${{ github.run_id }}
-            ${{ env.IMAGE_API }}:latest
+            ${{ steps.names.outputs.image_api }}:${{ github.run_id }}
+            ${{ steps.names.outputs.image_api }}:latest
 
       - name: Build + push web
         uses: docker/build-push-action@v6
@@ -48,8 +62,8 @@ jobs:
           file: web/Dockerfile
           push: true
           tags: |
-            ${{ env.IMAGE_WEB }}:${{ github.run_id }}
-            ${{ env.IMAGE_WEB }}:latest
+            ${{ steps.names.outputs.image_web }}:${{ github.run_id }}
+            ${{ steps.names.outputs.image_web }}:latest
 
   # Cluster credentials live in repo secrets the AceDataCloud platform
   # team manages; the deploy step is gated on the platform secret being
@@ -70,5 +84,9 @@ jobs:
           echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
       - name: Deploy
         env:
-          GITHUB_RUN_ID: ${{ github.run_id }}
+          # `deploy/run.sh` substitutes ${TAG} in the manifests; it reads
+          # BUILD_NUMBER first, falling back to `local`. We pass the
+          # GitHub Actions run id so the rolled-out pods reference the
+          # exact image tag we just built+pushed in the `images` job.
+          BUILD_NUMBER: ${{ github.run_id }}
         run: bash deploy/run.sh
