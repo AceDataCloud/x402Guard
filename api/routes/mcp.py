@@ -338,12 +338,14 @@ async def _tool_pay_for_api(
             )
 
         # Construct an X-Payment header that the facilitator understands.
-        # AceDataCloud's facilitator accepts
-        # `{"x402Version":1,"scheme":"solana","network":"solana","payload":{"signature":"<tx>"}}`
-        # base64-encoded as a single header value.
+        # The facilitator (FacilitatorX402) is x402-spec compliant: it matches
+        # `scheme="exact"` + `network="solana"` and reads the on-chain tx
+        # signature out of `payload.signature`. See
+        # https://github.com/AceDataCloud/FacilitatorX402 (`solana_chain.py
+        # ::_extract_signature`).
         envelope = {
             "x402Version": 1,
-            "scheme": "solana",
+            "scheme": "exact",
             "network": "solana",
             "payload": {"signature": result.tx_signature},
         }
