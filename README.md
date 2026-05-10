@@ -5,6 +5,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Colosseum Frontier 2026](https://img.shields.io/badge/Colosseum-Frontier_2026-purple)](https://colosseum.com/frontier)
+[![Live on devnet](https://img.shields.io/badge/devnet-live-brightgreen)](https://x402guard.acedata.cloud/.well-known/x402guard)
 
 | | |
 |---|---|
@@ -13,9 +14,92 @@
 | 🤖 MCP transport | Streamable HTTP at `https://x402guard.acedata.cloud/mcp/<session-token>` |
 | 📜 Hackathon | [Colosseum Frontier 2026](https://colosseum.com/frontier) (deadline May 11, 2026) |
 
+> **✅ End-to-end verified live on 2026-05-10.** Three on-chain `aceguard_spend` invocations against the production MCP endpoint all settled on Solana devnet, the latest one ([`249u8Pion…3y3D`](https://solscan.io/tx/249u8Pion7UmwiWQ2jWZJzqMpSVCxAQo9vT9dGZD85zGqNiRYzYHJ8a8Mkz3Cokpnos4EqHKzNw4u5cXzTbr3y3D?cluster=devnet)) returned cleanly with `isError: false` from the MCP tool. Vault USDC balance moved `4.00 → 3.97` USDC; on-chain ATA matches the DB exactly. Reproduce with the [60-second verification recipe](#60-second-verification-no-claude-no-mcp-client-no-sdk) below.
+
 ---
 
-## Why
+## 60-second verification (no Claude, no MCP client, no SDK)
+
+**The MCP endpoint is plain JSON-RPC over HTTP POST. You can drive it from `curl`** — don't trust us, run it yourself.
+
+1. Get an MCP URL
+
+   - Open https://x402guard.acedata.cloud, connect Phantom on **devnet**, create a vault (or open an existing one).
+   - On the vault detail page, **MCP sessions** card → **+ New MCP URL** → copy.
+
+2. Sanity-check the endpoint with a single `curl`
+
+   ```bash
+   URL='https://x402guard.acedata.cloud/mcp/<TOKEN-FROM-STEP-1>'
+
+   # tools/list
+   curl -sS "$URL" -H 'content-type: application/json' \
+     -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \
+     | python3 -m json.tool
+
+   # aceguard_balance — reads on-chain USDC + remaining caps
+   curl -sS "$URL" -H 'content-type: application/json' \
+     -d '{"jsonrpc":"2.0","id":2,"method":"tools/call",
+          "params":{"name":"aceguard_balance","arguments":{}}}' \
+     | python3 -m json.tool
+   ```
+
+   You should see four tools (`aceguard_balance`, `aceguard_history`, `aceguard_spend`, `aceguard_pay_for_api`) and your real on-chain vault balance.
+
+3. Run the bundled CLI demo for the full sequence (`tools/list` → `balance` → *optional* `pay_for_api` → `balance` → `history`)
+
+   ```bash
+   # Python (httpx + stdlib only)
+   git clone https://github.com/AceDataCloud/x402Guard && cd x402Guard
+   python scripts/demo.py "$URL" --skip-pay        # read-only, no on-chain tx
+   python scripts/demo.py "$URL"                   # full pay_for_api round-trip (see caveat below)
+
+   # Or with bash + curl + jq
+   ./scripts/mcp-curl.sh "$URL"
+   ```
+
+**If steps 1–2 work and `aceguard_balance` returns your real vault balance, your endpoint is healthy.** Any `MCP could not be loaded` you see in Claude Desktop after that is a **client config issue**, not a server problem — see [Step 4b](#4b-claude-desktop-via-the-mcp-remote-bridge).
+
+### `aceguard_spend` — verified clean
+
+Direct on-chain transfer to a recipient you choose. Caps + allowlist + nonce all enforced **on chain** by the Anchor program.
+
+```bash
+curl -sS "$URL" -H 'content-type: application/json' -d '{
+  "jsonrpc":"2.0","id":3,"method":"tools/call","params":{
+    "name":"aceguard_spend",
+    "arguments":{
+      "amount_usdc": 0.01,
+      "recipient": "<a Solana wallet you control>",
+      "endpoint_host": "<must be on your vault allowlist>"
+    }}}' | python3 -m json.tool
+```
+
+Response on success (verified live):
+
+```json
+{
+  "tx": "249u8Pion7UmwiWQ2jWZJzqMpSVCxAQo9vT9dGZD85zGqNiRYzYHJ8a8Mkz3Cokpnos4EqHKzNw4u5cXzTbr3y3D",
+  "amount_usdc": 0.01,
+  "nonce": 3,
+  "solscan": "https://solscan.io/tx/249u8Pion…3y3D"
+}
+```
+
+Click the Solscan link — the tx is finalized on devnet, recipient ATA is credited, vault balance ticked down by exactly the spend amount.
+
+> ⚠️ **Pre-req for `aceguard_spend`:** the recipient's USDC ATA on devnet must already exist. If it doesn't, the on-chain program returns `AccountNotInitialized` (Anchor 3012) — deliberately; the program never auto-creates the recipient's ATA. Create it once with `spl-token --url devnet create-account 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU --owner <RECIPIENT>` (anyone can pay the rent).
+
+### `aceguard_pay_for_api` against `api.acedata.cloud` — mainnet-only
+
+`api.acedata.cloud` returns its 402 quotes in **mainnet** USDC (`EPjFWdd5…` mint, `5iVXFr…` payTo). The current x402guard deploy is on **devnet** with the Circle devnet USDC mint, so the recipient ATA the on-chain program expects doesn't exist on this cluster. This is **expected and called out** in [`.plans/X402GUARD.md`](.plans/X402GUARD.md) — mainnet deploy is a one-line config change scheduled for the submission day.
+
+Until the mainnet flip, drive `aceguard_spend` to any devnet recipient you control to verify the full chain-level path. Or use the [`@acedatacloud/x402-client`][x402client] SDK directly to make paid `api.acedata.cloud` calls from your own wallet (no x402guard policy enforcement, but proves the wire format).
+
+[x402client]: https://github.com/AceDataCloud/X402Client
+
+---
+
 
 AI agents are about to spend money on their own. Today the only options are:
 
@@ -270,32 +354,36 @@ to x402guard when you want the spending guardrails.
 
 In Claude Desktop, ask:
 
-> *"Use aceguard_pay_for_api to call https://api.acedata.cloud/midjourney/imagine and make a watercolor birthday card with flowers."*
+> *"Use aceguard_spend to send 0.01 USDC to `<a devnet wallet you control>` for endpoint `api.acedata.cloud`."*
 
 Claude will:
 
-1. Call `aceguard_pay_for_api(url=..., method="POST", json_body={"prompt": ...})`
-2. Server hits the URL → `api.acedata.cloud` returns `402 Payment Required` with a `Solana` quote (real x402 v2 envelope, verified live)
-3. Server invokes `agent_vault::spend(...)` on Solana — program checks every policy gate, then PDA-signs the SPL transfer
-4. Server constructs an `X-Payment` header from the tx signature and retries the API
-5. Server returns the upstream JSON (image URL) to Claude
-6. Claude renders the image inline
+1. Call `aceguard_spend(amount_usdc=0.01, recipient=..., endpoint_host="api.acedata.cloud")`
+2. The x402guard backend invokes `agent_vault::spend(...)` on Solana
+3. The Anchor program checks every policy gate (paused / expired / per-call cap / daily cap / allowlist / nonce)
+4. PDA-signs the SPL transfer
+5. Returns the finalized tx signature + a Solscan deep-link
 
-Refresh the Dapp's vault detail page — balance ticked down by `0.025708` USDC, a new spend appears in **MCP sessions** history with a Solscan deep-link.
+[Verified live](#60-second-verification-no-claude-no-mcp-client-no-sdk) on 2026-05-10 — latest tx [`249u8Pion…3y3D`](https://solscan.io/tx/249u8Pion7UmwiWQ2jWZJzqMpSVCxAQo9vT9dGZD85zGqNiRYzYHJ8a8Mkz3Cokpnos4EqHKzNw4u5cXzTbr3y3D?cluster=devnet).
+
+> **About `aceguard_pay_for_api`** — the high-level wrapper that combines x402's HTTP 402 dance with on-chain `spend()` works in code, but `api.acedata.cloud` issues mainnet quotes; the current devnet deploy can't settle them. See [the mainnet-only note above](#aceguard_pay_for_api-against-apiacedatacloud--mainnet-only). For now use `aceguard_spend` to a devnet recipient — same on-chain ix, same policy enforcement, same Solscan-verifiable result.
+
+Refresh the Dapp's vault detail page — balance ticked down by exactly the spend amount, a new spend appears in **MCP sessions** history with a Solscan deep-link.
 
 ### Step 6 — See the boundary in action (1 min)
 
-To prove the on-chain enforcement is real, ask Claude things that *violate* the policy:
+To prove the on-chain enforcement is real, ask Claude things that *violate* the policy. Each one returns the corresponding Anchor error directly from the program — the backend can't override it.
 
-| Prompt | What happens |
+| Prompt | What happens (Anchor error) |
 |---|---|
-| *"Use aceguard_pay_for_api to call evil-api.com instead"* | Backend builds the spend ix, Solana rejects with `EndpointNotAllowed` |
-| *"Run aceguard_pay_for_api a hundred times"* | First ~80 succeed, then `DailyCapExceeded` |
-| *"Single 5 USDC transfer to evil-recipient"* | `PerCallCapExceeded` |
-| In the Dapp, click **Pause** on the vault | Phantom signs, on-chain `policy.paused = true`. Next agent call: `VaultPaused` |
-| Click **Clawback** | Sweeps the vault USDC back to your wallet **and** pauses atomically |
+| *"Send 0.01 USDC to `<recipient>` for endpoint `evil-api.com`"* | `EndpointNotAllowed` — the endpoint hash is not in the allowlist |
+| *"Send 5 USDC in one shot"* (per-call cap = 0.5) | `PerCallCapExceeded` |
+| *"Run aceguard_spend a hundred times for 0.05 USDC each"* (daily cap = 2 USDC) | First ~40 succeed, then `DailyCapExceeded` |
+| *Replay a previous spend* (e.g. send the same payload again with a backend nonce that's already on-chain) | `NonceReplay` |
+| *In the Dapp, click* **Pause** *on the vault* | Phantom signs, on-chain `policy.paused = true`. Next spend: `VaultPaused` |
+| *Click* **Clawback** | Sweeps the vault USDC back to your wallet **and** pauses atomically |
 
-Every rejection is signed by the on-chain program — the backend can't override it.
+Every rejection is signed by the on-chain program — the backend can't override it. This is the whole product: the boundary is the program, not the backend.
 
 ---
 
