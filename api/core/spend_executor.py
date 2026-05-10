@@ -63,17 +63,31 @@ async def _next_nonce(db: AsyncSession, vault: Vault) -> int:
 
 
 async def _confirm(rpc, signature: str, timeout_s: float = 30.0) -> None:
-    """Block until the cluster confirms the tx (or raise on timeout)."""
+    """Block until the cluster confirms the tx (or raise on timeout).
+
+    `solana-py >= 0.34` / `solders` typing notes:
+    - `get_signature_statuses(...)` requires `Signature` objects, not strings
+    - `s.confirmation_status` is a `solders.transaction_status.TransactionConfirmationStatus`
+      enum value (not hashable into a `set` of strings). Compare via its
+      string repr instead.
+    """
     import asyncio
 
+    from solders.signature import Signature
+
+    sig_obj = Signature.from_string(signature)
     deadline = asyncio.get_event_loop().time() + timeout_s
     while asyncio.get_event_loop().time() < deadline:
-        status = await rpc.get_signature_statuses([signature])
+        status = await rpc.get_signature_statuses([sig_obj])
         s = status.value[0]
         if s is not None:
             if s.err is not None:
                 raise SpendError(reason="cluster_rejected", cluster_message=str(s.err))
-            if s.confirmation_status in {"confirmed", "finalized"}:
+            # `confirmation_status` may be a solders enum or a plain string
+            # depending on the solana-py / solders version. Coerce to string
+            # before membership-checking against the {confirmed,finalized} set.
+            cs = str(s.confirmation_status).lower().rsplit(".", 1)[-1]
+            if cs in {"confirmed", "finalized"}:
                 return
         await asyncio.sleep(0.5)
     raise SpendError(reason="confirm_timeout")
